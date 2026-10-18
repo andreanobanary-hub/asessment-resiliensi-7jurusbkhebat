@@ -23,6 +23,9 @@ export interface CounselingAnalysisResponse {
   kategori: string;
   narasiBK: string;
   rekomendasiLayanan: string;
+  paragraph1?: string;
+  paragraph2?: string;
+  paragraph3?: string;
   detailParagraf?: {
     apresiasiDanKekuatan: string;
     tipsPraktis: string[];
@@ -39,6 +42,7 @@ export interface CounselingAnalysisResponse {
     message: string;
     timestamp: string;
   };
+  [key: string]: any;
 }
 
 interface CounselingResultViewProps {
@@ -357,55 +361,36 @@ export const CounselingResultView: React.FC<CounselingResultViewProps> = ({
 
               {/* Render Structured Paragraphs */}
               <div className="space-y-5 text-slate-800 leading-relaxed text-sm sm:text-base">
-                {/* Paragraf 1: Apresiasi & Validasi */}
+                {/* Paragraf 1: Apresiasi & Validasi (Kartu Hijau) */}
                 <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs relative pl-5 border-l-4 border-l-emerald-500">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-700 mb-1.5">
                     <Sparkles className="w-3.5 h-3.5" />
                     <span>Paragraf 1: Apresiasi Kejujuran & Validasi Potensi Diri</span>
                   </div>
-                  <p className="text-slate-700 font-normal">
-                    {data.detailParagraf?.apresiasiDanKekuatan || paragraphs[0] || data.narasiBK}
+                  <p className="text-slate-700 font-normal leading-relaxed whitespace-pre-line">
+                    {data.paragraph1 || data.detailParagraf?.apresiasiDanKekuatan || paragraphs[0] || data.narasiBK}
                   </p>
                 </div>
 
-                {/* Paragraf 2: 2 Tips Praktis & Realistis */}
+                {/* Paragraf 2: 2 Tips Praktis & Realistis (Kartu Oranye) */}
                 <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs relative pl-5 border-l-4 border-l-amber-500">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-amber-700 mb-1.5">
                     <Compass className="w-3.5 h-3.5" />
                     <span>Paragraf 2: 2 Tips Praktis untuk Melatih Dimensi "{studentMeta.dimensiTerendah}"</span>
                   </div>
-
-                  {data.detailParagraf?.tipsPraktis && data.detailParagraf.tipsPraktis.length > 0 ? (
-                    <div className="space-y-2 mt-2">
-                      <p className="text-slate-700">
-                        Untuk memperkuat aspek <strong>{studentMeta.dimensiTerendah}</strong>, kamu bisa mencoba dua kebiasaan sederhana berikut:
-                      </p>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
-                        {data.detailParagraf.tipsPraktis.map((tip, idx) => (
-                          <div key={idx} className="p-3 rounded-lg bg-amber-50/70 border border-amber-200/80 text-xs sm:text-sm text-amber-950 font-medium flex items-start gap-2">
-                            <span className="w-5 h-5 rounded-full bg-amber-200 text-amber-900 font-bold text-xs flex items-center justify-center shrink-0 mt-0.5">
-                              {idx + 1}
-                            </span>
-                            <span>{tip}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <p className="text-slate-700 font-normal">
-                      {paragraphs[1] || 'Latih keterampilan diri secara bertahap setiap hari.'}
-                    </p>
-                  )}
+                  <p className="text-slate-700 font-normal leading-relaxed whitespace-pre-line">
+                    {data.paragraph2 || (data.detailParagraf?.tipsPraktis ? data.detailParagraf.tipsPraktis.join(' ') : '') || paragraphs[1] || 'Latih keterampilan diri secara bertahap setiap hari.'}
+                  </p>
                 </div>
 
-                {/* Paragraf 3: Penguat Semangat & Undangan Hangat ke Ruang BK */}
+                {/* Paragraf 3: Penguat Semangat & Undangan Hangat ke Ruang BK (Kartu Biru) */}
                 <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs relative pl-5 border-l-4 border-l-teal-500">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-teal-700 mb-1.5">
                     <Heart className="w-3.5 h-3.5" />
                     <span>Paragraf 3: Penguat Semangat & Undangan Hangat ke Ruang BK</span>
                   </div>
-                  <p className="text-slate-700 font-normal">
-                    {data.detailParagraf?.ajakanDanPenguat || paragraphs[2] || 'Ruang BK selalu terbuka untukmu.'}
+                  <p className="text-slate-700 font-normal leading-relaxed whitespace-pre-line">
+                    {data.paragraph3 || data.detailParagraf?.ajakanDanPenguat || paragraphs[2] || 'Ruang BK selalu terbuka untukmu.'}
                   </p>
                 </div>
               </div>

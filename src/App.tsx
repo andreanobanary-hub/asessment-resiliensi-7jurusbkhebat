@@ -50,6 +50,156 @@ export default function App() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   /**
+   * Helper untuk mem-parsing umpan balik konselor 3 paragraf secara aman dan utuh:
+   * 1. Mengecek properti paragraph1, paragraph2, paragraph3 langsung jika tersedia dari service.
+   * 2. Jika respons berupa teks gabungan tunggal, memisahkan secara aman berdasarkan penanda
+   *    [PARAGRAF_1], [PARAGRAF_2], [PARAGRAF_3] atau pemisahan baris ganda '\n\n' tanpa regex yang memotong kalimat.
+   * 3. Menjaga teks tips di Paragraf 2 dan motivasi di Paragraf 3 tetap utuh dan lengkap di masing-masing kartu.
+   */
+  const parseCounselorFeedback = (
+    rawResult: any,
+    dimensiTerendah: string = 'Regulasi Emosi'
+  ): {
+    paragraph1: string;
+    paragraph2: string;
+    paragraph3: string;
+    narasiBK: string;
+    detailParagraf: {
+      apresiasiDanKekuatan: string;
+      tipsPraktis: string[];
+      ajakanDanPenguat: string;
+    };
+  } => {
+    if (!rawResult) {
+      return {
+        paragraph1: '',
+        paragraph2: '',
+        paragraph3: '',
+        narasiBK: '',
+        detailParagraf: {
+          apresiasiDanKekuatan: '',
+          tipsPraktis: [],
+          ajakanDanPenguat: '',
+        },
+      };
+    }
+
+    // 1. Cek langsung properti paragraph1, paragraph2, paragraph3 jika sudah tersedia dari service
+    let p1 = typeof rawResult.paragraph1 === 'string' ? rawResult.paragraph1.trim() : '';
+    let p2 = typeof rawResult.paragraph2 === 'string' ? rawResult.paragraph2.trim() : '';
+    let p3 = typeof rawResult.paragraph3 === 'string' ? rawResult.paragraph3.trim() : '';
+
+    // 2. Jika ada paragraf yang belum terisi, lakukan ekstraksi aman dari teks gabungan
+    const combinedText = (
+      rawResult.narasiBK ||
+      rawResult.counselorFeedback ||
+      rawResult.feedback ||
+      rawResult.analysis ||
+      ''
+    ).trim();
+
+    if ((!p1 || !p2 || !p3) && combinedText) {
+      // Regex penanda penomoran paragraf fleksibel ([PARAGRAF_X], [PARAGRAF X], **[PARAGRAF_X]**, Paragraf X:)
+      const marker1 = /(?:\[\s*PARAGRAF[_\s]*1\s*\]|\*\*\[?PARAGRAF[_\s]*1\]?\*\*|Paragraf\s*1\s*:)/i;
+      const marker2 = /(?:\[\s*PARAGRAF[_\s]*2\s*\]|\*\*\[?PARAGRAF[_\s]*2\]?\*\*|Paragraf\s*2\s*:)/i;
+      const marker3 = /(?:\[\s*PARAGRAF[_\s]*3\s*\]|\*\*\[?PARAGRAF[_\s]*3\]?\*\*|Paragraf\s*3\s*:)/i;
+
+      if (marker2.test(combinedText)) {
+        const splitAt2 = combinedText.split(marker2);
+        const segmentBefore2 = splitAt2[0] || '';
+        const segmentAfter2 = splitAt2.slice(1).join('\n\n');
+
+        if (!p1) {
+          p1 = segmentBefore2.replace(marker1, '').trim();
+        }
+
+        if (marker3.test(segmentAfter2)) {
+          const splitAt3 = segmentAfter2.split(marker3);
+          if (!p2) {
+            p2 = (splitAt3[0] || '').trim();
+          }
+          if (!p3) {
+            p3 = splitAt3.slice(1).join('\n\n').trim();
+          }
+        } else {
+          // Jika tidak ada penanda [PARAGRAF_3], gunakan pembagian baris ganda '\n\n' secara aman
+          const blocks = segmentAfter2
+            .split(/\n\s*\n+/)
+            .map((b: string) => b.trim())
+            .filter(Boolean);
+          if (blocks.length >= 2) {
+            if (!p2) p2 = blocks[0];
+            if (!p3) p3 = blocks.slice(1).join('\n\n');
+          } else if (blocks.length === 1) {
+            if (!p2) p2 = blocks[0];
+          }
+        }
+      }
+
+      // Jika masih ada yang belum terurai, bagi menggunakan pemisahan baris ganda '\n\n'
+      if (!p1 || !p2 || !p3) {
+        const cleanText = combinedText
+          .replace(/(?:\[\s*PARAGRAF[_\s]*\d\s*\]|\*\*\[?PARAGRAF[_\s]*\d\]?\*\*|Paragraf\s*\d\s*:)/gi, '')
+          .trim();
+
+        const blocks = cleanText
+          .split(/\n\s*\n+/)
+          .map((b: string) => b.trim())
+          .filter(Boolean);
+
+        if (blocks.length >= 3) {
+          if (!p1) p1 = blocks[0];
+          if (!p2) p2 = blocks[1];
+          if (!p3) p3 = blocks.slice(2).join('\n\n');
+        } else if (blocks.length === 2) {
+          if (!p1) p1 = blocks[0];
+          if (!p2) p2 = blocks[1];
+        } else if (blocks.length === 1 && !p1) {
+          p1 = blocks[0];
+        }
+      }
+    }
+
+    // 3. Fallback ke detailParagraf jika masih ada yang kosong
+    if (!p1 && rawResult.detailParagraf?.apresiasiDanKekuatan) {
+      p1 = String(rawResult.detailParagraf.apresiasiDanKekuatan).trim();
+    }
+    if (!p2 && rawResult.detailParagraf?.tipsPraktis?.length) {
+      p2 = Array.isArray(rawResult.detailParagraf.tipsPraktis)
+        ? rawResult.detailParagraf.tipsPraktis.join(' ').trim()
+        : String(rawResult.detailParagraf.tipsPraktis).trim();
+    }
+    if (!p3 && rawResult.detailParagraf?.ajakanDanPenguat) {
+      p3 = String(rawResult.detailParagraf.ajakanDanPenguat).trim();
+    }
+
+    // 4. Fallback kalimat jika sama sekali tidak ada respon
+    if (!p1) {
+      p1 = 'Terima kasih atas kejujuran dan keterbukaanmu dalam mengisi asesmen resiliensi ini. Ini adalah langkah awal yang sangat berharga untuk lebih memahami potensi dan kekuatan dalam dirimu.';
+    }
+    if (!p2) {
+      p2 = `Untuk memperkuat aspek ${dimensiTerendah}, cobalah untuk menerapkan teknik relaksasi saat menghadapi tekanan dan diskusikan hal-hal yang memicu kecemasan dengan orang yang kamu percayai. Latihlah secara perlahan dan hargai setiap progres kecilmu!`;
+    }
+    if (!p3) {
+      p3 = 'Tetaplah melangkah dengan penuh keyakinan dan semangat. Ingatlah bahwa kamu tidak pernah sendiri; pintu ruang BK selalu terbuka lebar dan hangat kapan pun kamu ingin bercerita atau sekadar bertukar pikiran.';
+    }
+
+    const cleanFullNarasi = [p1, p2, p3].filter(Boolean).join('\n\n');
+
+    return {
+      paragraph1: p1,
+      paragraph2: p2,
+      paragraph3: p3,
+      narasiBK: cleanFullNarasi,
+      detailParagraf: {
+        apresiasiDanKekuatan: p1,
+        tipsPraktis: [p2],
+        ajakanDanPenguat: p3,
+      },
+    };
+  };
+
+  /**
    * Client-Side Direct Execution:
    * 1. Memanggil Google Generative Language API (Gemini gemini-3.8-flash) langsung dari browser
    * 2. Mengirimkan hasil asesmen ke Google Apps Script Web App (Google Spreadsheet)
@@ -73,7 +223,7 @@ export default function App() {
 
     try {
       // Pemanggilan langsung di sisi client (Client-Side Direct)
-      const result = await analyzeResilienceDirect({
+      const rawResult = await analyzeResilienceDirect({
         nama: payload.nama.trim(),
         kelas: payload.kelas.trim(),
         nisn: payload.nisn.trim() || '-',
@@ -85,7 +235,25 @@ export default function App() {
         apiKey: apiKey,
       });
 
-      setAnalysisResult(result);
+      // Parsing aman 3 paragraf tanpa memotong kalimat
+      const parsedParagraphs = parseCounselorFeedback(rawResult, payload.dimensiTerendah);
+
+      const finalResult: CounselingAnalysisResponse = {
+        ...rawResult,
+        kategori: rawResult.kategori || payload.kategori,
+        rekomendasiLayanan:
+          rawResult.rekomendasiLayanan ||
+          (payload.persentaseSkor < 45
+            ? `Konseling Individual (Fokus: Dimensi ${payload.dimensiTerendah})`
+            : `Bimbingan Kelompok (Topik: Penguatan ${payload.dimensiTerendah})`),
+        narasiBK: parsedParagraphs.narasiBK,
+        paragraph1: parsedParagraphs.paragraph1,
+        paragraph2: parsedParagraphs.paragraph2,
+        paragraph3: parsedParagraphs.paragraph3,
+        detailParagraf: parsedParagraphs.detailParagraf,
+      };
+
+      setAnalysisResult(finalResult);
 
       // Gulir halus ke kartu hasil analisis
       setTimeout(() => {
