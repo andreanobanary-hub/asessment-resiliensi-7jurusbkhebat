@@ -32,7 +32,7 @@ export const QuestionnaireView: React.FC<QuestionnaireViewProps> = ({
   onComplete,
   onCancel,
   initialNama = '',
-  initialKelas = 'Kelas IX SMP',
+  initialKelas = '',
 }) => {
   const [nama, setNama] = useState(initialNama);
   const [kelas, setKelas] = useState(initialKelas);
@@ -177,7 +177,7 @@ export const QuestionnaireView: React.FC<QuestionnaireViewProps> = ({
           </label>
           <input
             type="text"
-            placeholder="Contoh: Revalina Putri"
+            placeholder="Masukkan nama lengkap siswa..."
             value={nama}
             onChange={(e) => setNama(e.target.value)}
             className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm font-medium text-slate-800 focus:border-emerald-500 outline-hidden"
@@ -189,7 +189,7 @@ export const QuestionnaireView: React.FC<QuestionnaireViewProps> = ({
           </label>
           <input
             type="text"
-            placeholder="Contoh: Kelas IX-A SMP / Kelas XI SMA"
+            placeholder="Pilih atau ketik kelas (misal: 7A, 8B)..."
             value={kelas}
             onChange={(e) => setKelas(e.target.value)}
             className="w-full px-3 py-2 rounded-xl border border-slate-300 bg-white text-sm font-medium text-slate-800 focus:border-emerald-500 outline-hidden"

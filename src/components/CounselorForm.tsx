@@ -6,16 +6,14 @@ import {
   Activity, 
   AlertCircle, 
   FileText, 
-  RotateCcw,
-  BookOpen,
-  ArrowRight,
-  Smile
+  RotateCcw, 
+  BookOpen, 
+  ArrowRight, 
+  Smile 
 } from 'lucide-react';
 import { 
   RESILIENCE_DIMENSIONS, 
-  PRESET_STUDENTS, 
-  StudentProfile, 
-  getCategoryFromScore,
+  getCategoryFromScore, 
   getCategoryBadge 
 } from '../data/resilienceData';
 
@@ -36,7 +34,6 @@ interface CounselorFormProps {
   onSubmit: (e: React.FormEvent) => void;
   isLoading: boolean;
   onOpenQuestionnaire: () => void;
-  onSelectPreset: (preset: StudentProfile) => void;
   hasApiKey: boolean;
   onOpenApiKey: () => void;
 }
@@ -47,9 +44,6 @@ export const CounselorForm: React.FC<CounselorFormProps> = ({
   onSubmit,
   isLoading,
   onOpenQuestionnaire,
-  onSelectPreset,
-  hasApiKey,
-  onOpenApiKey,
 }) => {
   const handleScoreChange = (score: number) => {
     const clamped = Math.max(0, Math.min(100, score));
@@ -77,14 +71,14 @@ export const CounselorForm: React.FC<CounselorFormProps> = ({
                 Profil Asesmen Siswa
               </span>
               <span className="text-[10px] bg-emerald-900/60 px-2 py-0.5 rounded-full border border-emerald-400/40 text-emerald-200">
-                Client-Side Direct
+                Data Riil Peserta Didik
               </span>
             </div>
             <h2 className="text-lg sm:text-xl font-bold tracking-tight">
-              Formulir Input Data Resiliensi
+              Formulir Input Data Resiliensi Siswa
             </h2>
             <p className="text-xs sm:text-sm text-emerald-100/90 mt-0.5">
-              Analisis langsung di browser ke Gemini AI Studio & sinkronisasi otomatis ke Google Spreadsheet.
+              Masukkan data asesmen riil siswa untuk menyusun narasi umpan balik BK ramah remaja dan sinkronisasi ke Google Spreadsheet.
             </p>
           </div>
 
@@ -98,30 +92,6 @@ export const CounselorForm: React.FC<CounselorFormProps> = ({
               <span>Kuesioner 14 Butir</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
-          </div>
-        </div>
-
-        {/* Preset quick buttons */}
-        <div className="mt-4 pt-3.5 border-t border-emerald-600/40">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-xs font-medium text-emerald-100 flex items-center gap-1">
-              <Sparkles className="w-3.5 h-3.5" /> Muat Contoh Profil Siswa:
-            </span>
-            <div className="flex flex-wrap gap-1.5">
-              {PRESET_STUDENTS.map((preset) => (
-                <button
-                  key={preset.id}
-                  type="button"
-                  onClick={() => onSelectPreset(preset)}
-                  className="px-2.5 py-1 rounded-lg text-xs font-medium bg-emerald-900/40 hover:bg-emerald-900/70 border border-emerald-400/30 text-white transition-all flex items-center gap-1 cursor-pointer"
-                >
-                  <span>{preset.nama}</span>
-                  <span className="text-[10px] text-emerald-200/90 font-mono">
-                    ({preset.persentaseSkor}%)
-                  </span>
-                </button>
-              ))}
-            </div>
           </div>
         </div>
       </div>
@@ -138,7 +108,7 @@ export const CounselorForm: React.FC<CounselorFormProps> = ({
             <input
               type="text"
               required
-              placeholder="Contoh: Rafi Pratama"
+              placeholder="Masukkan nama lengkap siswa..."
               value={formData.nama}
               onChange={(e) => setFormData({ ...formData, nama: e.target.value })}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 text-sm font-medium text-slate-800 transition-all outline-hidden"
@@ -153,7 +123,7 @@ export const CounselorForm: React.FC<CounselorFormProps> = ({
             </label>
             <input
               type="text"
-              placeholder="Contoh: 0071234567"
+              placeholder="Contoh: 0012345678 (opsional)..."
               value={formData.nisn}
               onChange={(e) => setFormData({ ...formData, nisn: e.target.value })}
               className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 text-sm font-medium text-slate-800 transition-all outline-hidden"
@@ -170,7 +140,7 @@ export const CounselorForm: React.FC<CounselorFormProps> = ({
               <input
                 type="text"
                 required
-                placeholder="Contoh: Kelas IX-A SMP / Kelas XI SMA"
+                placeholder="Pilih atau ketik kelas (misal: 7A, 8B)..."
                 value={formData.kelas}
                 onChange={(e) => setFormData({ ...formData, kelas: e.target.value })}
                 className="flex-1 px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 text-sm font-medium text-slate-800 transition-all outline-hidden"
@@ -183,9 +153,9 @@ export const CounselorForm: React.FC<CounselorFormProps> = ({
                   }
                 }}
                 className="px-2.5 py-2.5 rounded-xl border border-slate-300 bg-slate-50 text-xs font-medium text-slate-700 focus:border-emerald-500 outline-hidden"
-                defaultValue=""
+                value={formData.kelas || ""}
               >
-                <option value="" disabled>Pilihan Cepat</option>
+                <option value="">- Pilih Kelas -</option>
                 <option value="Kelas VII SMP">Kelas VII SMP</option>
                 <option value="Kelas VIII SMP">Kelas VIII SMP</option>
                 <option value="Kelas IX SMP">Kelas IX SMP</option>
@@ -209,7 +179,7 @@ export const CounselorForm: React.FC<CounselorFormProps> = ({
                 <span>Persentase Skor Resiliensi <span className="text-rose-500">*</span></span>
               </label>
               <p className="text-xs text-slate-500 mt-0.5">
-                Skala total asesmen resiliensi siswa (0% - 100%)
+                Geser slider atau masukkan angka persentase hasil asesmen (0% - 100%)
               </p>
             </div>
 
@@ -257,7 +227,7 @@ export const CounselorForm: React.FC<CounselorFormProps> = ({
 
           {/* Category override if counselor has clinical notes */}
           <div className="pt-2 flex items-center justify-between text-xs text-slate-500">
-            <span>Kategori terdeteksi otomatis: <strong className="text-slate-700">{formData.kategori}</strong></span>
+            <span>Kategori terdeteksi: <strong className="text-slate-700">{formData.kategori}</strong></span>
             <select
               aria-label="Pilih kategori resiliensi manual"
               value={formData.kategori}
@@ -278,10 +248,10 @@ export const CounselorForm: React.FC<CounselorFormProps> = ({
           <div className="flex items-center justify-between mb-2">
             <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
               <AlertCircle className="w-3.5 h-3.5 text-amber-600" />
-              <span>Dimensi Resiliensi Terendah <span className="text-rose-500">*</span></span>
+              <span>Pilih Dimensi Resiliensi Terendah Siswa <span className="text-rose-500">*</span></span>
             </label>
             <span className="text-xs text-slate-500">
-              Aspek yang membutuhkan penguatan khusus di Paragraf 2
+              Fokus keterampilan yang akan diperkuat pada umpan balik
             </span>
           </div>
 
@@ -293,7 +263,7 @@ export const CounselorForm: React.FC<CounselorFormProps> = ({
                   key={name}
                   type="button"
                   onClick={() => setFormData({ ...formData, dimensiTerendah: name })}
-                  className={`p-3 rounded-xl border text-left transition-all relative ${
+                  className={`p-3 rounded-xl border text-left transition-all relative cursor-pointer ${
                     isSelected
                       ? 'border-emerald-600 bg-emerald-50/70 shadow-xs ring-2 ring-emerald-500/20'
                       : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
@@ -327,7 +297,7 @@ export const CounselorForm: React.FC<CounselorFormProps> = ({
           </label>
           <textarea
             rows={2}
-            placeholder="Contoh: Siswa sering cemas saat ujian matematika, pendiam saat kerja kelompok, atau baru pindah dari luar kota..."
+            placeholder="Tuliskan catatan observasi atau latar belakang siswa jika ada..."
             value={formData.catatanKhusus}
             onChange={(e) => setFormData({ ...formData, catatanKhusus: e.target.value })}
             className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 text-sm text-slate-800 transition-all outline-hidden"
@@ -345,7 +315,7 @@ export const CounselorForm: React.FC<CounselorFormProps> = ({
               setFormData({
                 nama: '',
                 nisn: '',
-                kelas: 'Kelas IX SMP',
+                kelas: '',
                 persentaseSkor: 50,
                 kategori: 'Resiliensi Sedang',
                 dimensiTerendah: 'Regulasi Emosi',
@@ -353,15 +323,15 @@ export const CounselorForm: React.FC<CounselorFormProps> = ({
                 gayaBahasa: 'ramah_remaja',
               });
             }}
-            className="w-full sm:w-auto px-4 py-2.5 text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all flex items-center justify-center gap-1.5"
+            className="w-full sm:w-auto px-4 py-2.5 text-xs font-semibold text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-all flex items-center justify-center gap-1.5 cursor-pointer"
           >
             <RotateCcw className="w-3.5 h-3.5" />
-            <span>Reset Formulir</span>
+            <span>Bersihkan Formulir</span>
           </button>
 
           <button
             type="submit"
-            disabled={isLoading || !formData.nama.trim()}
+            disabled={isLoading || !formData.nama.trim() || !formData.kelas.trim()}
             className="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm shadow-md shadow-emerald-600/25 transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
           >
             {isLoading ? (

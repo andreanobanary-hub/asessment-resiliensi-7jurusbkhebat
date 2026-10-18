@@ -6,9 +6,9 @@ import { QuestionnaireView } from './components/QuestionnaireView';
 import { DimensionGuideModal } from './components/DimensionGuideModal';
 import { ApiKeyModal } from './components/ApiKeyModal';
 import { ClassRecapView } from './components/ClassRecapView';
-import { PRESET_STUDENTS, StudentProfile } from './data/resilienceData';
+import { StudentProfile } from './data/resilienceData';
 import { analyzeResilienceDirect } from './services/counselorClientService';
-import { Sparkles, AlertCircle } from 'lucide-react';
+import { Sparkles, AlertCircle, FileText } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'analyzer' | 'questionnaire' | 'recap'>('analyzer');
@@ -25,23 +25,23 @@ export default function App() {
     }
   }, []);
 
-  // Default active profile: Aditya Pratama
+  // Nilai awal bersih dan netral untuk data riil siswa
   const [formData, setFormData] = useState<FormDataState>({
-    nama: 'Aditya Pratama',
-    nisn: '0082910394',
-    kelas: 'Kelas IX-B SMP',
-    persentaseSkor: 46,
-    kategori: 'Resiliensi Rendah',
+    nama: '',
+    nisn: '',
+    kelas: '',
+    persentaseSkor: 50,
+    kategori: 'Resiliensi Sedang',
     dimensiTerendah: 'Regulasi Emosi',
-    catatanKhusus: 'Mudah cemas dan gugup saat ujian matematika, kadang menangis di toilet sekolah saat ditegur pengawas.',
+    catatanKhusus: '',
     gayaBahasa: 'ramah_remaja',
   });
 
   const [studentMeta, setStudentMeta] = useState({
-    nama: 'Aditya Pratama',
-    nisn: '0082910394',
-    kelas: 'Kelas IX-B SMP',
-    persentaseSkor: 46,
+    nama: '',
+    nisn: '',
+    kelas: '',
+    persentaseSkor: 50,
     dimensiTerendah: 'Regulasi Emosi',
   });
 
@@ -49,33 +49,24 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Analisis otomatis saat halaman pertama kali dibuka menggunakan Client-Side Direct Execution
-  useEffect(() => {
-    executeAnalysis({
-      nama: 'Aditya Pratama',
-      nisn: '0082910394',
-      kelas: 'Kelas IX-B SMP',
-      persentaseSkor: 46,
-      kategori: 'Resiliensi Rendah',
-      dimensiTerendah: 'Regulasi Emosi',
-      catatanKhusus: 'Mudah cemas dan gugup saat ujian matematika, kadang menangis di toilet sekolah saat ditegur pengawas.',
-      gayaBahasa: 'ramah_remaja',
-    });
-  }, []);
-
   /**
    * Client-Side Direct Execution:
-   * 1. Memanggil Google Generative Language API (Gemini gemini-2.5-flash / gemini-3.8-flash) langsung dari browser
-   * 2. Mengirimkan hasil asesmen ke Google Apps Script Web App (Spreadsheet)
+   * 1. Memanggil Google Generative Language API (Gemini gemini-3.8-flash) langsung dari browser
+   * 2. Mengirimkan hasil asesmen ke Google Apps Script Web App (Google Spreadsheet)
    */
   const executeAnalysis = async (payload: FormDataState) => {
+    if (!payload.nama.trim() || !payload.kelas.trim()) {
+      setErrorMessage('Mohon lengkapi Nama Siswa dan Jenjang/Kelas terlebih dahulu.');
+      return;
+    }
+
     setIsLoading(true);
     setErrorMessage(null);
 
     setStudentMeta({
-      nama: payload.nama,
-      nisn: payload.nisn,
-      kelas: payload.kelas,
+      nama: payload.nama.trim(),
+      nisn: payload.nisn.trim(),
+      kelas: payload.kelas.trim(),
       persentaseSkor: payload.persentaseSkor,
       dimensiTerendah: payload.dimensiTerendah,
     });
@@ -83,14 +74,14 @@ export default function App() {
     try {
       // Pemanggilan langsung di sisi client (Client-Side Direct)
       const result = await analyzeResilienceDirect({
-        nama: payload.nama,
-        kelas: payload.kelas,
-        nisn: payload.nisn || '-',
+        nama: payload.nama.trim(),
+        kelas: payload.kelas.trim(),
+        nisn: payload.nisn.trim() || '-',
         skorTotal: payload.persentaseSkor,
         persentase: payload.persentaseSkor,
         kategori: payload.kategori,
         dimensiTerendah: payload.dimensiTerendah,
-        catatan: payload.catatanKhusus,
+        catatan: payload.catatanKhusus.trim(),
         apiKey: apiKey,
       });
 
@@ -118,15 +109,15 @@ export default function App() {
     executeAnalysis(formData);
   };
 
-  const handleSelectPreset = (preset: StudentProfile) => {
+  const handleSelectStudentFromRecap = (student: StudentProfile) => {
     const updated: FormDataState = {
-      nama: preset.nama,
-      nisn: preset.nisn || '0071928491',
-      kelas: preset.kelas,
-      persentaseSkor: preset.persentaseSkor,
-      kategori: preset.kategori,
-      dimensiTerendah: preset.dimensiTerendah,
-      catatanKhusus: preset.catatanKhusus || '',
+      nama: student.nama,
+      nisn: student.nisn || '',
+      kelas: student.kelas,
+      persentaseSkor: student.persentaseSkor,
+      kategori: student.kategori,
+      dimensiTerendah: student.dimensiTerendah,
+      catatanKhusus: student.catatanKhusus || '',
       gayaBahasa: 'ramah_remaja',
     };
     setFormData(updated);
@@ -144,7 +135,7 @@ export default function App() {
   }) => {
     const updated: FormDataState = {
       nama: result.nama,
-      nisn: formData.nisn || '-',
+      nisn: formData.nisn || '',
       kelas: result.kelas,
       persentaseSkor: result.persentaseSkor,
       kategori: result.kategori,
@@ -173,14 +164,13 @@ export default function App() {
         {/* TAB: ANALYZER */}
         {activeTab === 'analyzer' && (
           <div className="space-y-8">
-            {/* Input Form */}
+            {/* Input Form Bersih & Siap Isi Data Riil */}
             <CounselorForm
               formData={formData}
               setFormData={setFormData}
               onSubmit={handleFormSubmit}
               isLoading={isLoading}
               onOpenQuestionnaire={() => setActiveTab('questionnaire')}
-              onSelectPreset={handleSelectPreset}
               hasApiKey={Boolean(apiKey)}
               onOpenApiKey={() => setIsApiKeyModalOpen(true)}
             />
@@ -212,7 +202,19 @@ export default function App() {
                   data={analysisResult}
                   studentMeta={studentMeta}
                 />
-              ) : null}
+              ) : (
+                <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-8 sm:p-12 text-center shadow-2xs">
+                  <div className="w-12 h-12 mx-auto rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-3">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-base font-bold text-slate-800">
+                    Siap Menganalisis Data Resiliensi Peserta Didik
+                  </h3>
+                  <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mt-1">
+                    Silakan isi Nama Siswa, Jenjang/Kelas, persentase skor, dan dimensi terendah pada formulir di atas, lalu klik <strong>"Analisis & Susun Umpan Balik Konselor"</strong>.
+                  </p>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -231,7 +233,7 @@ export default function App() {
         {activeTab === 'recap' && (
           <ClassRecapView
             onSelectStudent={(student) => {
-              handleSelectPreset(student);
+              handleSelectStudentFromRecap(student);
             }}
           />
         )}
