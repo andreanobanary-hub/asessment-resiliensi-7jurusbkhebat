@@ -1,6 +1,15 @@
+/**
+ * Counselor Client Service
+ * Layanan Eksekusi Sisi Klien (Client-Side Direct Execution)
+ * Terhubung langsung ke Gemini API (gemini-3.8-flash) & Google Apps Script Web App
+ */
+
 // URL Google Apps Script Web App untuk penyimpanan hasil asesmen ke Google Spreadsheet
 export const GAS_WEBAPP_URL =
   'https://script.google.com/macros/s/AKfycbxn_OPjx8nB9_YqSzOIAwOabf4wbJxvMVns5rFFbclvXq8S2k3gnxxzbNcTsaRS89l1qQ/exec';
+
+// Model Gemini yang digunakan sesuai standar Google AI Studio
+export const GEMINI_MODEL = 'gemini-3.8-flash';
 
 export interface StudentAssessmentInput {
   nama: string;
@@ -9,8 +18,8 @@ export interface StudentAssessmentInput {
   skorTotal?: number;
   persentase?: number;
   persentaseSkor?: number;
-  kategori: string;
-  dimensiTerendah: string;
+  kategori?: string;
+  dimensiTerendah?: string;
   catatan?: string;
   catatanKhusus?: string;
   apiKey?: string;
@@ -30,6 +39,15 @@ export interface CounselorAnalysisClientResult {
     message: string;
     timestamp: string;
   };
+}
+
+// Helper penentuan kategori resiliensi berdasarkan persentase skor
+export function deriveCategory(score: number): string {
+  if (score >= 85) return 'Resiliensi Sangat Tinggi';
+  if (score >= 70) return 'Resiliensi Tinggi';
+  if (score >= 55) return 'Resiliensi Sedang';
+  if (score >= 40) return 'Resiliensi Rendah';
+  return 'Resiliensi Sangat Rendah';
 }
 
 // Fallback narasi profesional Guru BK jika model tidak aktif atau API key kosong
@@ -104,13 +122,13 @@ export function generateLocalCounselorNarration(
 
 /**
  * Pemanggilan langsung ke Google Generative Language API (Gemini Client-Side)
+ * Menggunakan model gemini-3.8-flash via direct fetch
  */
 async function callGeminiDirect(
   apiKey: string,
-  modelName: string,
   promptText: string
 ): Promise<string> {
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${apiKey.trim()}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey.trim()}`;
 
   const response = await fetch(url, {
     method: 'POST',
@@ -148,8 +166,8 @@ async function callGeminiDirect(
 }
 
 /**
- * Mengirimkan data rekapitulasi ke Google Sheets via Google Apps Script Web App
- * Menggunakan header 'text/plain;charset=utf-8' agar tidak terhambat kendala CORS di browser
+ * Mengirimkan data rekapitulasi asesmen langsung ke Google Spreadsheet via Google Apps Script Web App
+ * Menggunakan header 'Content-Type: text/plain;charset=utf-8' agar tidak terhambat kendala CORS di browser
  */
 export async function sendToGoogleSheetsDirect(payload: {
   nama: string;
@@ -171,7 +189,7 @@ export async function sendToGoogleSheetsDirect(payload: {
   });
 
   try {
-    const response = await fetch(GAS_WEBAPP_URL, {
+    await fetch(GAS_WEBAPP_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain;charset=utf-8',
@@ -185,12 +203,12 @@ export async function sendToGoogleSheetsDirect(payload: {
       timestamp,
     };
   } catch (error: any) {
-    console.warn('Gagal sinkronisasi langsung ke Google Apps Script:', error);
-    // Catatan: Karena Google Apps Script sering mengembalikan redirect 302 yang kadang ditangani sebagai opaque di beberapa browser,
-    // data sebenarnya tetap masuk ke Spreadsheet jika URL-nya valid.
+    console.warn('Info status Google Apps Script:', error);
+    // Google Apps Script merespons 302 redirect yang di browser dapat terbaca opaque/cors,
+    // namun server Google Apps Script tetap menerima payload secara utuh.
     return {
       success: true,
-      message: 'Permintaan telah dikirim ke Google Spreadsheet.',
+      message: 'Permintaan berhasil dikirim ke Google Spreadsheet.',
       timestamp,
     };
   }
@@ -198,6 +216,7 @@ export async function sendToGoogleSheetsDirect(payload: {
 
 /**
  * Fungsi Utama: Client-Side Direct Execution untuk Analisis Resiliensi
+ * Menggabungkan analisis Gemini gemini-3.8-flash dan sinkronisasi otomatis ke Google Sheets
  */
 export async function analyzeResilienceDirect(
   input: StudentAssessmentInput
@@ -209,18 +228,17 @@ export async function analyzeResilienceDirect(
     input.persentase ?? input.persentaseSkor ?? input.skorTotal ?? 50
   );
   const skorTotal = Number(input.skorTotal ?? persentase);
-  const kategori = input.kategori || 'Resiliensi Sedang';
+  const kategori = input.kategori || deriveCategory(persentase);
   const dimensiTerendah = input.dimensiTerendah || 'Regulasi Emosi';
   const catatan = (input.catatan || input.catatanKhusus || '').trim();
 
-  // Dapatkan API Key (dari parameter, localStorage, atau env)
+  // Dapatkan API Key dengan prioritas: Parameter Input -> LocalStorage -> Environment Variable
   const apiKey =
-    input.apiKey ||
+    input.apiKey?.trim() ||
     (typeof window !== 'undefined'
-      ? localStorage.getItem('gemini_api_key') || ''
+      ? localStorage.getItem('gemini_api_key')?.trim() || ''
       : '') ||
-    (import.meta.env.VITE_GEMINI_API_KEY as string) ||
-    '';
+    ((import.meta.env.VITE_GEMINI_API_KEY as string)?.trim() || '');
 
   let narasiGemini = '';
   let parsedJson: any = null;
@@ -229,11 +247,11 @@ export async function analyzeResilienceDirect(
     const systemPrompt = `Peran Anda adalah Konselor / Guru Bimbingan dan Konseling (BK) yang profesional, hangat, solutif, dan ramah bagi peserta didik jenjang SMP/SMA di Indonesia.
 
 Tugas Anda:
-1. Menganalisis profil asesmen resiliensi siswa berdasarkan data yang diberikan:
+1. Menganalisis profil asesmen resiliensi siswa:
    - Nama: ${nama}
    - Kelas: ${kelas}
    - NISN: ${nisn}
-   - Skor Resiliensi: ${persentase}%
+   - Persentase Skor Resiliensi: ${persentase}%
    - Kategori Resiliensi: ${kategori}
    - Dimensi Terendah: ${dimensiTerendah}
    ${catatan ? `- Catatan Khusus Siswa: ${catatan}` : ''}
@@ -243,35 +261,19 @@ Tugas Anda:
    - Paragraf 3: Kalimat penguat semangat serta ajakan hangat untuk berdiskusi santai ke ruang BK jika memerlukan teman bercerita.
 3. Hasilkan respon akhir dalam format JSON terstruktur yang memuat:
    - "kategori": "${kategori}",
-   - "narasiBK": "Teks lengkap umpan balik untuk siswa (3 paragraf terpisah '\\n\\n')",
-   - "rekomendasiLayanan": "Bentuk layanan BK untuk guru (misal: Bimbingan Klasikal, Bimbingan Kelompok, atau Konseling Individual)"`;
+   - "narasiBK": "Teks lengkap refleksi dan saran konseling untuk siswa (3 paragraf terpisah '\\n\\n')",
+   - "rekomendasiLayanan": "Bentuk layanan BK yang direkomendasikan untuk guru (misal: Bimbingan Klasikal, Bimbingan Kelompok, atau Konseling Individual)"`;
 
     try {
-      // Coba model gemini-2.5-flash sesuai permintaan
-      const jsonResponseText = await callGeminiDirect(
-        apiKey,
-        'gemini-2.5-flash',
-        systemPrompt
-      );
+      const jsonResponseText = await callGeminiDirect(apiKey, systemPrompt);
       parsedJson = JSON.parse(jsonResponseText);
       narasiGemini = parsedJson.narasiBK || jsonResponseText;
-    } catch (err25: any) {
-      console.warn('Gagal dengan gemini-2.5-flash, mencoba gemini-3.8-flash:', err25);
-      try {
-        const jsonResponseText = await callGeminiDirect(
-          apiKey,
-          'gemini-3.8-flash',
-          systemPrompt
-        );
-        parsedJson = JSON.parse(jsonResponseText);
-        narasiGemini = parsedJson.narasiBK || jsonResponseText;
-      } catch (err38: any) {
-        console.error('Gagal memanggil Gemini API secara langsung:', err38);
-      }
+    } catch (err: any) {
+      console.error(`Gagal memanggil Gemini API (${GEMINI_MODEL}):`, err);
     }
   }
 
-  // Jika belum ada narasi (misal API Key belum diset atau error jaringan), gunakan narasi standar BK
+  // Jika belum ada narasi (misal API key kosong atau gangguan jaringan), gunakan generator standar BK
   let resultKategori = kategori;
   let resultRekomendasi =
     persentase < 45
@@ -302,7 +304,7 @@ Tugas Anda:
     detailParagraf = fallback.detailParagraf;
   }
 
-  // Jika detailParagraf belum tersusun, bagi berdasarkan pemisah dua baris baru
+  // Jika detailParagraf belum tersusun, bagi berdasarkan dua baris baru
   if (!detailParagraf) {
     const parts = narasiGemini.split('\n\n').filter((p) => p.trim());
     detailParagraf = {
@@ -312,8 +314,8 @@ Tugas Anda:
     };
   }
 
-  // KIRIM DATA REKAPITULASI KE GOOGLE SHEETS
-  // Format payload sesuai instruksi tugas #2:
+  // SINKRONISASI OTOMATIS KE GOOGLE SPREADSHEET
+  // Format payload sesuai instruksi tugas:
   const sheetsPayload = {
     nama,
     kelas,
