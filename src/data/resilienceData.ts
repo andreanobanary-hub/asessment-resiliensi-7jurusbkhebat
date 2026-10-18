@@ -122,6 +122,7 @@ export const RESILIENCE_DIMENSIONS: Record<string, DimensionInfo> = {
 export interface StudentProfile {
   id: string;
   nama: string;
+  nisn?: string;
   kelas: string;
   jenjang: 'SMP' | 'SMA' | 'SMK';
   persentaseSkor: number;

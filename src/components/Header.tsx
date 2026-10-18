@@ -1,13 +1,21 @@
 import React from 'react';
-import { Heart, Sparkles, BookOpen, ShieldCheck, HelpCircle } from 'lucide-react';
+import { Heart, Sparkles, BookOpen, ShieldCheck, HelpCircle, Key } from 'lucide-react';
 
 interface HeaderProps {
   onOpenGuide: () => void;
+  onOpenApiKey: () => void;
+  hasApiKey: boolean;
   activeTab: 'analyzer' | 'questionnaire' | 'recap';
   setActiveTab: (tab: 'analyzer' | 'questionnaire' | 'recap') => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ onOpenGuide, activeTab, setActiveTab }) => {
+export const Header: React.FC<HeaderProps> = ({
+  onOpenGuide,
+  onOpenApiKey,
+  hasApiKey,
+  activeTab,
+  setActiveTab,
+}) => {
   return (
     <header className="bg-white border-b border-slate-200/80 sticky top-0 z-30 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -38,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenGuide, activeTab, setActiv
               <button
                 type="button"
                 onClick={() => setActiveTab('analyzer')}
-                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'analyzer'
                     ? 'bg-white text-emerald-700 font-bold shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -51,7 +59,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenGuide, activeTab, setActiv
               <button
                 type="button"
                 onClick={() => setActiveTab('questionnaire')}
-                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'questionnaire'
                     ? 'bg-white text-emerald-700 font-bold shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -64,7 +72,7 @@ export const Header: React.FC<HeaderProps> = ({ onOpenGuide, activeTab, setActiv
               <button
                 type="button"
                 onClick={() => setActiveTab('recap')}
-                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 ${
+                className={`px-3 py-1.5 rounded-lg transition-all flex items-center gap-1.5 cursor-pointer ${
                   activeTab === 'recap'
                     ? 'bg-white text-emerald-700 font-bold shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
@@ -76,8 +84,22 @@ export const Header: React.FC<HeaderProps> = ({ onOpenGuide, activeTab, setActiv
 
             <button
               type="button"
+              onClick={onOpenApiKey}
+              className={`inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg border transition-all cursor-pointer ${
+                hasApiKey
+                  ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+              }`}
+              title="Atur Gemini API Key untuk Client-Side Execution"
+            >
+              <Key className="w-3.5 h-3.5 text-emerald-600" />
+              <span>{hasApiKey ? 'Gemini: Aktif' : 'Atur API Key'}</span>
+            </button>
+
+            <button
+              type="button"
               onClick={onOpenGuide}
-              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-emerald-700 bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-200 px-2.5 py-1.5 rounded-lg transition-colors"
+              className="inline-flex items-center gap-1.5 text-xs font-medium text-slate-600 hover:text-emerald-700 bg-slate-50 hover:bg-emerald-50 border border-slate-200 hover:border-emerald-200 px-2.5 py-1.5 rounded-lg transition-colors cursor-pointer"
               title="Panduan 7 Dimensi Resiliensi Guru BK"
             >
               <HelpCircle className="w-4 h-4 text-emerald-600" />
@@ -89,3 +111,4 @@ export const Header: React.FC<HeaderProps> = ({ onOpenGuide, activeTab, setActiv
     </header>
   );
 };
+

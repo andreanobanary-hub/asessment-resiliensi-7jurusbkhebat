@@ -4,17 +4,31 @@ import { CounselorForm, FormDataState } from './components/CounselorForm';
 import { CounselingResultView, CounselingAnalysisResponse } from './components/CounselingResultView';
 import { QuestionnaireView } from './components/QuestionnaireView';
 import { DimensionGuideModal } from './components/DimensionGuideModal';
+import { ApiKeyModal } from './components/ApiKeyModal';
 import { ClassRecapView } from './components/ClassRecapView';
 import { PRESET_STUDENTS, StudentProfile } from './data/resilienceData';
-import { Heart, Sparkles, Shield, AlertCircle } from 'lucide-react';
+import { analyzeResilienceDirect } from './services/counselorClientService';
+import { Sparkles, AlertCircle } from 'lucide-react';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'analyzer' | 'questionnaire' | 'recap'>('analyzer');
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [apiKey, setApiKey] = useState<string>('');
+
+  // Periksa apakah API key tersimpan di localStorage atau env
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('gemini_api_key') || '';
+      const envKey = (import.meta.env.VITE_GEMINI_API_KEY as string) || '';
+      setApiKey(stored || envKey);
+    }
+  }, []);
 
   // Default active profile: Aditya Pratama
   const [formData, setFormData] = useState<FormDataState>({
     nama: 'Aditya Pratama',
+    nisn: '0082910394',
     kelas: 'Kelas IX-B SMP',
     persentaseSkor: 46,
     kategori: 'Resiliensi Rendah',
@@ -25,6 +39,7 @@ export default function App() {
 
   const [studentMeta, setStudentMeta] = useState({
     nama: 'Aditya Pratama',
+    nisn: '0082910394',
     kelas: 'Kelas IX-B SMP',
     persentaseSkor: 46,
     dimensiTerendah: 'Regulasi Emosi',
@@ -34,10 +49,11 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  // Perform initial analysis on mount
+  // Analisis otomatis saat halaman pertama kali dibuka menggunakan Client-Side Direct Execution
   useEffect(() => {
     executeAnalysis({
       nama: 'Aditya Pratama',
+      nisn: '0082910394',
       kelas: 'Kelas IX-B SMP',
       persentaseSkor: 46,
       kategori: 'Resiliensi Rendah',
@@ -47,32 +63,40 @@ export default function App() {
     });
   }, []);
 
+  /**
+   * Client-Side Direct Execution:
+   * 1. Memanggil Google Generative Language API (Gemini gemini-2.5-flash / gemini-3.8-flash) langsung dari browser
+   * 2. Mengirimkan hasil asesmen ke Google Apps Script Web App (Spreadsheet)
+   */
   const executeAnalysis = async (payload: FormDataState) => {
     setIsLoading(true);
     setErrorMessage(null);
 
     setStudentMeta({
       nama: payload.nama,
+      nisn: payload.nisn,
       kelas: payload.kelas,
       persentaseSkor: payload.persentaseSkor,
       dimensiTerendah: payload.dimensiTerendah,
     });
 
     try {
-      const res = await fetch('/api/analyze-resilience', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+      // Pemanggilan langsung di sisi client (Client-Side Direct)
+      const result = await analyzeResilienceDirect({
+        nama: payload.nama,
+        kelas: payload.kelas,
+        nisn: payload.nisn || '-',
+        skorTotal: payload.persentaseSkor,
+        persentase: payload.persentaseSkor,
+        kategori: payload.kategori,
+        dimensiTerendah: payload.dimensiTerendah,
+        catatan: payload.catatanKhusus,
+        apiKey: apiKey,
       });
 
-      if (!res.ok) {
-        throw new Error(`Server status: ${res.status}`);
-      }
+      setAnalysisResult(result);
 
-      const data: CounselingAnalysisResponse = await res.json();
-      setAnalysisResult(data);
-
-      // Smooth scroll to result
+      // Gulir halus ke kartu hasil analisis
       setTimeout(() => {
         const resultEl = document.getElementById('counseling-result-section');
         if (resultEl) {
@@ -80,9 +104,9 @@ export default function App() {
         }
       }, 150);
     } catch (err: any) {
-      console.error('Error during counselor analysis:', err);
+      console.error('Error during client-side counselor analysis:', err);
       setErrorMessage(
-        'Terjadi kendala saat menghubungi layanan konselor. Silakan coba kembali sesaat lagi.'
+        'Terjadi kendala saat menganalisis asesmen. Data tetap dapat diakses menggunakan generator cadangan.'
       );
     } finally {
       setIsLoading(false);
@@ -97,6 +121,7 @@ export default function App() {
   const handleSelectPreset = (preset: StudentProfile) => {
     const updated: FormDataState = {
       nama: preset.nama,
+      nisn: preset.nisn || '0071928491',
       kelas: preset.kelas,
       persentaseSkor: preset.persentaseSkor,
       kategori: preset.kategori,
@@ -119,6 +144,7 @@ export default function App() {
   }) => {
     const updated: FormDataState = {
       nama: result.nama,
+      nisn: formData.nisn || '-',
       kelas: result.kelas,
       persentaseSkor: result.persentaseSkor,
       kategori: result.kategori,
@@ -136,6 +162,8 @@ export default function App() {
       {/* Top Navigation Bar */}
       <Header
         onOpenGuide={() => setIsGuideOpen(true)}
+        onOpenApiKey={() => setIsApiKeyModalOpen(true)}
+        hasApiKey={Boolean(apiKey)}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
       />
@@ -153,9 +181,11 @@ export default function App() {
               isLoading={isLoading}
               onOpenQuestionnaire={() => setActiveTab('questionnaire')}
               onSelectPreset={handleSelectPreset}
+              hasApiKey={Boolean(apiKey)}
+              onOpenApiKey={() => setIsApiKeyModalOpen(true)}
             />
 
-            {/* Error Message */}
+            {/* Error Message jika ada */}
             {errorMessage && (
               <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0 text-rose-600" />
@@ -171,10 +201,10 @@ export default function App() {
                     <Sparkles className="w-6 h-6" />
                   </div>
                   <h3 className="text-base sm:text-lg font-bold text-slate-900">
-                    Konselor BK Sedang Merumuskan Refleksi Pribadi...
+                    Menganalisis & Mengirim ke Google Spreadsheet...
                   </h3>
                   <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto mt-1">
-                    Menyusun narasi umpan balik 3 paragraf ramah remaja, validasi potensi diri, tips praktis {formData.dimensiTerendah}, dan rekomendasi layanan.
+                    Menghubungi Gemini AI Studio, menyusun narasi umpan balik 3 paragraf, dan merekam data asesmen {formData.nama}.
                   </p>
                 </div>
               ) : analysisResult ? (
@@ -214,7 +244,7 @@ export default function App() {
             <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             <span className="font-semibold text-slate-700">Ruang BK Resiliensi Siswa SMP/SMA</span>
             <span>•</span>
-            <span>Berdasarkan Panduan Operasional Penyelenggaraan BK (POP BK Kemendikbudristek)</span>
+            <span>Client-Side Direct & Google Spreadsheet Web App</span>
           </div>
 
           <p className="text-slate-400">
@@ -227,6 +257,13 @@ export default function App() {
       <DimensionGuideModal
         isOpen={isGuideOpen}
         onClose={() => setIsGuideOpen(false)}
+      />
+
+      {/* Gemini API Key Configuration Modal */}
+      <ApiKeyModal
+        isOpen={isApiKeyModalOpen}
+        onClose={() => setIsApiKeyModalOpen(false)}
+        onKeySaved={(newKey) => setApiKey(newKey)}
       />
     </div>
   );

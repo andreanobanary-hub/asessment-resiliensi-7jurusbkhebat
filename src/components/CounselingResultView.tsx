@@ -13,7 +13,9 @@ import {
   MessageSquare,
   Compass,
   FileCheck,
-  Award
+  Award,
+  CheckCircle2,
+  Table
 } from 'lucide-react';
 import { getCategoryBadge } from '../data/resilienceData';
 
@@ -32,12 +34,18 @@ export interface CounselingAnalysisResponse {
     indikatorKeberhasilan: string;
     referensiPOP_BK?: string;
   };
+  googleSheetsStatus?: {
+    success: boolean;
+    message: string;
+    timestamp: string;
+  };
 }
 
 interface CounselingResultViewProps {
   data: CounselingAnalysisResponse;
   studentMeta: {
     nama: string;
+    nisn?: string;
     kelas: string;
     persentaseSkor: number;
     dimensiTerendah: string;
@@ -260,6 +268,42 @@ export const CounselingResultView: React.FC<CounselingResultViewProps> = ({
 
       {/* Tab Contents */}
       <div className="p-5 sm:p-7">
+        {/* Notifikasi Hijau Status Pengiriman Google Spreadsheet */}
+        {data.googleSheetsStatus && (
+          <div className="mb-6 p-4 rounded-xl bg-emerald-50 border border-emerald-300 text-emerald-900 shadow-2xs animate-in fade-in duration-300">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-start sm:items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs sm:text-sm font-bold text-emerald-950">
+                      Data Berhasil Disimpan ke Google Spreadsheet!
+                    </span>
+                    <span className="text-[10px] font-mono font-semibold bg-emerald-200/70 text-emerald-900 px-2 py-0.5 rounded-md">
+                      {data.googleSheetsStatus.timestamp}
+                    </span>
+                  </div>
+                  <p className="text-xs text-emerald-800 mt-0.5">
+                    Data profil ({studentMeta.nama}, NISN: {studentMeta.nisn || '-'}, Skor: {studentMeta.persentaseSkor}%, Kategori: {data.kategori}) telah otomatis terekam via Google Apps Script Web App.
+                  </p>
+                </div>
+              </div>
+
+              <a
+                href="https://script.google.com/macros/s/AKfycbxn_OPjx8nB9_YqSzOIAwOabf4wbJxvMVns5rFFbclvXq8S2k3gnxxzbNcTsaRS89l1qQ/exec"
+                target="_blank"
+                rel="noreferrer"
+                className="self-start sm:self-auto inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white text-emerald-700 border border-emerald-300 hover:bg-emerald-100 transition-all shadow-2xs"
+              >
+                <Table className="w-3.5 h-3.5" />
+                <span>Endpoint Sheets</span>
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* TAB 1: SURAT UMPAN BALIK SISWA */}
         {activeTab === 'surat' && (
           <div className="space-y-6">
