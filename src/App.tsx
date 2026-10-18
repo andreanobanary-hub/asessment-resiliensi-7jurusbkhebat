@@ -403,6 +403,7 @@ export default function App() {
             onSelectStudent={(student) => {
               handleSelectStudentFromRecap(student);
             }}
+            onNavigateToForm={() => setActiveTab('analyzer')}
           />
         )}
       </main>
