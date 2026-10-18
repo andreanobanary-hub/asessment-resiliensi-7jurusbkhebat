@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import 'dotenv/config';
 import { GoogleGenAI, Type } from '@google/genai';
+import analyzeResilienceHandler from './api/analyze-resilience.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -133,147 +134,8 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// Endpoint: Analyze Single Student Profile
-app.post('/api/analyze-resilience', async (req, res) => {
-  try {
-    const {
-      nama = 'Siswa',
-      kelas = 'Kelas IX SMP',
-      persentaseSkor = 50,
-      kategori: inputKategori,
-      dimensiTerendah = 'Regulasi Emosi',
-      dimensiDetail,
-      catatanKhusus = '',
-      gayaBahasa = 'ramah_remaja',
-    } = req.body;
-
-    const kategori = inputKategori || deriveCategory(Number(persentaseSkor));
-
-    if (!ai) {
-      // Return high quality deterministic counselor fallback
-      const fallback = generateFallbackCounselorResponse({
-        nama,
-        kelas,
-        persentaseSkor: Number(persentaseSkor),
-        kategori,
-        dimensiTerendah,
-        catatanKhusus,
-      });
-      return res.json(fallback);
-    }
-
-    const systemInstruction = `Peran Anda adalah Konselor / Guru Bimbingan dan Konseling (BK) yang profesional, hangat, solutif, dan ramah bagi peserta didik jenjang SMP/SMA di Indonesia.
-
-Tugas Anda:
-1. Menganalisis profil asesmen resiliensi siswa berdasarkan data yang diberikan (Nama, Kelas, Persentase Skor, Kategori Resiliensi, dan Dimensi Terendah).
-2. Menyusun narasi umpan balik (feedback) pribadi dengan gaya bahasa remaja yang memotivasi dan tidak menghakimi (maksimal 2–3 paragraf singkat):
-   - Paragraf 1: Apresiasi kejujuran siswa dan validasi potensi/kekuatan dirinya.
-   - Paragraf 2: Berikan 2 tips praktis dan realistis untuk melatih dimensi yang masih rendah (misal: Regulasi Emosi, Efikasi Diri, atau Kontrol Impuls).
-   - Paragraf 3: Kalimat penguat semangat serta ajakan hangat untuk berdiskusi santai ke ruang BK jika memerlukan teman bercerita.
-3. Selalu hasilkan respon akhir dalam format JSON terstruktur yang memuat:
-   - "kategori": Kategori resiliensi siswa.
-   - "narasiBK": Teks refleksi dan saran konseling untuk siswa (berisi 3 paragraf utuh yang dipisahkan oleh dua baris baru '\\n\\n').
-   - "rekomendasiLayanan": Bentuk layanan BK yang direkomendasikan untuk guru (misal: Bimbingan Klasikal, Bimbingan Kelompok, atau Konseling Individual disertai fokus materi).
-
-Prinsip Bahasa:
-- Hangat, santun, tidak menggurui, tidak menghakimi (non-judgmental).
-- Memposisikan ruang BK bukan sebagai tempat menghukum, melainkan rumah aman (safe space) untuk bertumbuh dan bercerita.
-- Tips praktis harus dapat langsung dicoba oleh siswa SMP/SMA dalam keseharian sekolah.`;
-
-    const userPrompt = `Berikut adalah data profil asesmen resiliensi siswa:
-- Nama Siswa: ${nama}
-- Jenjang / Kelas: ${kelas}
-- Persentase Skor Resiliensi: ${persentaseSkor}%
-- Kategori Resiliensi: ${kategori}
-- Dimensi Terendah: ${dimensiTerendah}
-${catatanKhusus ? `- Catatan Khusus / Situasi Siswa: ${catatanKhusus}` : ''}
-${dimensiDetail ? `- Rincian Dimensi: ${JSON.stringify(dimensiDetail)}` : ''}
-- Preferensi Gaya: ${gayaBahasa}
-
-Mohon susun analisis dan narasi umpan balik konselor BK sesuai pedoman 3 paragraf di atas, serta tetapkan rekomendasi layanan BK yang tepat. Hasilkan dalam format JSON yang telah ditentukan.`;
-
-    const response = await ai.models.generateContent({
-      model: 'gemini-3.8-flash',
-      contents: userPrompt,
-      config: {
-        systemInstruction,
-        temperature: 0.7,
-        responseMimeType: 'application/json',
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            kategori: {
-              type: Type.STRING,
-              description: 'Kategori resiliensi siswa',
-            },
-            narasiBK: {
-              type: Type.STRING,
-              description:
-                'Teks refleksi dan saran konseling untuk siswa, maksimal 2-3 paragraf singkat dengan bahasa remaja hangat dan memotivasi',
-            },
-            rekomendasiLayanan: {
-              type: Type.STRING,
-              description:
-                'Bentuk layanan BK yang direkomendasikan untuk guru (misal: Bimbingan Klasikal, Bimbingan Kelompok, atau Konseling Individual beserta fokus topik)',
-            },
-            detailParagraf: {
-              type: Type.OBJECT,
-              properties: {
-                apresiasiDanKekuatan: {
-                  type: Type.STRING,
-                  description: 'Paragraf 1: Apresiasi kejujuran siswa dan validasi potensi/kekuatan dirinya.',
-                },
-                tipsPraktis: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING },
-                  description: 'Daftar 2 tips praktis dan realistis untuk dimensi terendah.',
-                },
-                ajakanDanPenguat: {
-                  type: Type.STRING,
-                  description:
-                    'Paragraf 3: Kalimat penguat semangat serta ajakan hangat untuk berdiskusi santai ke ruang BK.',
-                },
-              },
-              required: ['apresiasiDanKekuatan', 'tipsPraktis', 'ajakanDanPenguat'],
-            },
-            rencanaTindakLanjutGuru: {
-              type: Type.OBJECT,
-              properties: {
-                tujuanLayanan: { type: Type.STRING },
-                tahapanAksi: { type: Type.ARRAY, items: { type: Type.STRING } },
-                indikatorKeberhasilan: { type: Type.STRING },
-                referensiPOP_BK: { type: Type.STRING },
-              },
-              required: ['tujuanLayanan', 'tahapanAksi', 'indikatorKeberhasilan'],
-            },
-          },
-          required: ['kategori', 'narasiBK', 'rekomendasiLayanan'],
-        },
-      },
-    });
-
-    const text = response.text;
-    if (!text) {
-      throw new Error('Respons kosong dari model Gemini');
-    }
-
-    const parsed = JSON.parse(text);
-    return res.json(parsed);
-  } catch (error: any) {
-    console.error('Error analyzing resilience:', error);
-
-    // Fallback gracefully so the counselor/student is never blocked
-    const fallback = generateFallbackCounselorResponse({
-      nama: req.body?.nama || 'Siswa',
-      kelas: req.body?.kelas || 'Kelas IX SMP',
-      persentaseSkor: Number(req.body?.persentaseSkor) || 50,
-      kategori: req.body?.kategori || deriveCategory(Number(req.body?.persentaseSkor) || 50),
-      dimensiTerendah: req.body?.dimensiTerendah || 'Regulasi Emosi',
-      catatanKhusus: req.body?.catatanKhusus,
-    });
-    return res.json(fallback);
-  }
-});
+// Endpoint: Analyze Single Student Profile (uses same handler as Vercel /api/analyze-resilience)
+app.all('/api/analyze-resilience', (req, res) => analyzeResilienceHandler(req, res));
 
 // Endpoint: Batch Analysis for Multiple Students
 app.post('/api/batch-analyze', async (req, res) => {
